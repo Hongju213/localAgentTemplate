@@ -183,15 +183,16 @@ async def _dummy_process(items: list, task_type: str, input_data: Any = None) ->
 
             logger.info(f"  bat 실행: {BAT_PATH}")
             proc = subprocess.run(
-                [BAT_PATH],
+                BAT_PATH,
                 env=env,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=30,
                 shell=True,
             )
-            bat_output = proc.stdout.strip()
-            bat_error = proc.stderr.strip()
+            bat_output = (proc.stdout or "").strip()
+            bat_error = (proc.stderr or "").strip()
 
             if bat_output:
                 print(bat_output, flush=True)

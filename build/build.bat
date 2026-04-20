@@ -37,10 +37,14 @@ echo   Dependencies installed
 :: Step 4: Build EXE
 echo.
 echo [4/5] Building EXE with PyInstaller...
+
+set ICON_OPT=
+if exist "..\icon.ico" set ICON_OPT=--icon ..\icon.ico
+
 pyinstaller --name LocalAgent ^
     --onefile ^
     --windowed ^
-    --icon ..\icon.ico ^
+    %ICON_OPT% ^
     --add-data "..\config.py;." ^
     --add-data "..\models.py;." ^
     --add-data "..\worker.py;." ^

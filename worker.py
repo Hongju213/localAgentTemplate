@@ -29,6 +29,10 @@ import asyncio
 import logging
 import time
 import random
+import subprocess
+import json
+import os
+import sys
 from typing import Any, Optional, List
 
 from models import TaskRequest, TaskResponse, ResultItem
@@ -123,8 +127,7 @@ async def process_task(request: TaskRequest) -> TaskResponse:
         logger.info(f"  처리할 항목 수: {len(items)}")
 
         # ──────────────── Step 2: 실제 작업 수행 ─────────────────
-        # ★ 이 부분을 실제 로직으로 교체하세요!
-        results = await _dummy_process(items, request.task_type)
+        results = await _dummy_process(items, request.task_type, input_data)
 
         # ──────────────── Step 3: 결과 포장 ──────────────────────
         elapsed_ms = (time.time() - start_time) * 1000
@@ -160,32 +163,66 @@ async def process_task(request: TaskRequest) -> TaskResponse:
 # ║  process_task()의 Step 2를 직접 구현하세요.                      ║
 # ╚═══════════════════════════════════════════════════════════════╝
 
-async def _dummy_process(items: list, task_type: str) -> List[ResultItem]:
-    """
-    더미 처리 로직.
-    각 항목에 랜덤 점수를 부여하고 가공된 문자열을 반환합니다.
+BAT_PATH = r"C:\Projects\Agent\test.bat"
 
-    ★ 이 함수를 실제 로직으로 교체하세요!
+
+async def _dummy_process(items: list, task_type: str, input_data: Any = None) -> List[ResultItem]:
+    """
+    받은 JSON 데이터를 test.bat에 전달하여 실행하고 결과를 반환합니다.
     """
     results = []
 
-    for i, item in enumerate(items, start=1):
-        # 실제 작업처럼 약간의 딜레이
-        await asyncio.sleep(0.1)
+    # ── bat 파일 실행 ──────────────────────────────────────────────
+    bat_output = ""
+    bat_error = ""
 
-        # 더미 결과 생성
-        result = ResultItem(
-            id=i,
-            value=f"{item} → [{task_type}] 처리 완료",
-            score=round(random.uniform(0.5, 1.0), 3),
-            metadata={
-                "original": str(item),
-                "task_type": task_type,
-                "processed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-            }
-        )
-        results.append(result)
+    if sys.platform == "win32":
+        try:
+            env = os.environ.copy()
+            env["INPUT_JSON"] = json.dumps(input_data, ensure_ascii=False)
 
-        logger.info(f"  [{i}/{len(items)}] '{item}' 처리 완료 (score: {result.score})")
+            logger.info(f"  bat 실행: {BAT_PATH}")
+            proc = subprocess.run(
+                [BAT_PATH],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                shell=True,
+            )
+            bat_output = proc.stdout.strip()
+            bat_error = proc.stderr.strip()
+
+            if proc.returncode == 0:
+                logger.info(f"  bat 완료 (returncode=0)")
+            else:
+                logger.warning(f"  bat 비정상 종료 (returncode={proc.returncode})")
+
+        except FileNotFoundError:
+            bat_error = f"bat 파일을 찾을 수 없음: {BAT_PATH}"
+            logger.error(bat_error)
+        except subprocess.TimeoutExpired:
+            bat_error = "bat 실행 타임아웃 (30초 초과)"
+            logger.error(bat_error)
+        except Exception as e:
+            bat_error = str(e)
+            logger.error(f"  bat 실행 오류: {e}")
+    else:
+        bat_output = "[bat 실행 생략: Windows 환경에서만 동작합니다]"
+        logger.info(bat_output)
+
+    # ── 결과 구성 ──────────────────────────────────────────────────
+    results.append(ResultItem(
+        id=1,
+        value=bat_output or "(출력 없음)",
+        score=None,
+        metadata={
+            "task_type": task_type,
+            "bat_path": BAT_PATH,
+            "input_json": input_data,
+            "bat_error": bat_error or None,
+            "processed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    ))
 
     return results

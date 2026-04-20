@@ -193,6 +193,11 @@ async def _dummy_process(items: list, task_type: str, input_data: Any = None) ->
             bat_output = proc.stdout.strip()
             bat_error = proc.stderr.strip()
 
+            if bat_output:
+                print(bat_output, flush=True)
+            if bat_error:
+                print(bat_error, flush=True)
+
             if proc.returncode == 0:
                 logger.info(f"  bat 완료 (returncode=0)")
             else:

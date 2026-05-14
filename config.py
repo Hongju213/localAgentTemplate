@@ -40,12 +40,15 @@ REMOTE_API_KEY = None     # 예: "Bearer your-api-key-here"
 # TEST_BAT_PATH
 #   - agent가 "요청되었습니다."를 먼저 응답한 뒤 백그라운드에서 실행할 배치 파일입니다.
 #   - 이 배치 파일은 실제 업무 Python 엔트리포인트(run-pack.py)를 호출합니다.
-TEST_BAT_PATH = r"C:\Projects\Agent\test.bat"
+TEST_BAT_PATH = os.environ.get("LOCAL_AGENT_TEST_BAT_PATH", r"C:\Projects\Agent\test.bat")
 
 # TEST_CALLBACK_URL
 #   - Python 업무가 끝나 agent의 /api/bat/test/complete로 완료를 알려오면,
 #     agent가 최종 결과를 다시 전달할 sample backend callback API입니다.
-TEST_CALLBACK_URL = "http://127.0.0.1:8080/api/agent-test/callback"
+TEST_CALLBACK_URL = os.environ.get(
+    "LOCAL_AGENT_TEST_CALLBACK_URL",
+    "http://127.0.0.1:8080/api/agent-test/callback",
+)
 
 # ───────────────────────── 로그 설정 ─────────────────────────────
 def get_log_dir() -> Path:

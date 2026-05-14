@@ -74,9 +74,9 @@ if %errorlevel% neq 0 (
 :: Step 5: Verify
 echo.
 echo [5/6] Deploying test runner files...
-if not exist "C:\Projects\Agent" mkdir "C:\Projects\Agent"
-xcopy /E /I /Y "..\pack_runner\*" "C:\Projects\Agent\" >nul
-echo   Test runner deployed to C:\Projects\Agent
+if not exist "C:\Projects" mkdir "C:\Projects"
+xcopy /E /I /Y "..\pack_runner\*" "C:\Projects\" >nul
+echo   Test runner deployed to C:\Projects
 
 :: Step 6: Verify
 echo.

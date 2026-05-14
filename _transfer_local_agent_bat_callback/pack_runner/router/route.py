@@ -20,7 +20,7 @@ class Router:
       - mode: Generic/Deb/Dev/Test 같은 실행 모드
       - INPUT_JSON 환경변수: sample -> agent -> bat을 거쳐 넘어온 원 요청 정보
       - AGENT_COMPLETE_URL 환경변수: 완료 후 agent로 되돌려 보낼 URL
-      - PACK_JSON 환경변수: pack JSON 파일 경로, 없으면 C:\Projects\Agent\test-pack.json 사용
+      - PACK_JSON 환경변수: pack JSON 파일 경로, 없으면 C:\Projects\test-pack.json 사용
 
     출력:
       - execute()가 끝나면 agent 완료 API로 결과 JSON을 POST합니다.
@@ -29,7 +29,7 @@ class Router:
         self.mode = mode
         self.input_json = os.environ.get("INPUT_JSON", "{}")
         self.agent_complete_url = os.environ.get("AGENT_COMPLETE_URL")
-        self.pack_path = Path(os.environ.get("PACK_JSON", r"C:\Projects\Agent\test-pack.json"))
+        self.pack_path = Path(os.environ.get("PACK_JSON", r"C:\Projects\test-pack.json"))
         self.payload = {}
         self.pack = {}
         self.tasks = []

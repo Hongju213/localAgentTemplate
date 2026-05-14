@@ -14,7 +14,7 @@ echo 받아온 json 데이터는?
 echo %INPUT_JSON%
 echo.
 echo run-pack.py를 호출합니다.
-python "C:\Projects\Agent\run-pack.py"
+python "C:\Projects\run-pack.py"
 set EXIT_CODE=%ERRORLEVEL%
 echo.
 echo run-pack.py 종료 코드: %EXIT_CODE%

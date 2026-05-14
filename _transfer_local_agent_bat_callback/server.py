@@ -470,7 +470,6 @@ def _run_bat_file(path: str, input_json: str):
     env = os.environ.copy()
     env["INPUT_JSON"] = input_json
     env["AGENT_COMPLETE_URL"] = f"http://{config.LOCAL_HOST}:{config.LOCAL_PORT}/api/bat/test/complete"
-    env["PACK_JSON"] = os.path.join(os.path.dirname(config.TEST_BAT_PATH), "test-pack.json")
 
     try:
         completed = subprocess.run(

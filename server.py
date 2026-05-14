@@ -439,6 +439,10 @@ async def _run_test_bat_background(payload: dict):
 
     result = await asyncio.to_thread(_run_bat_file, config.TEST_BAT_PATH, input_json)
     logger.info(f"[BAT] Finished: exit_code={result['exit_code']}")
+    if result.get("stdout"):
+        logger.info(f"[BAT] stdout:\n{result['stdout']}")
+    if result.get("stderr"):
+        logger.warning(f"[BAT] stderr:\n{result['stderr']}")
 
 
 def _run_bat_file(path: str, input_json: str):

@@ -1,0 +1,16 @@
+{
+  "Pack": {
+    "name": "agent-test-pack",
+    "version": "0.1.0",
+    "startdatetime": "2026-05-14T00:00:00",
+    "description": "Sample pack for local agent callback flow"
+  },
+  "Tasks": {
+    "DefaultSetup": {
+      "enabled": true
+    },
+    "extractBWP": {
+      "enabled": true
+    }
+  }
+}

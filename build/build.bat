@@ -1,6 +1,10 @@
 @echo off
 chcp 65001 >nul 2>&1
 setlocal EnableDelayedExpansion
+cd /d "%~dp0"
+
+set PYTHONUTF8=1
+set PYTHONIOENCODING=utf-8
 
 title Local Agent Template - Build
 
@@ -37,14 +41,21 @@ echo   Dependencies installed
 :: Step 4: Build EXE
 echo.
 echo [4/5] Building EXE with PyInstaller...
+set ICON_ARGS=
+if exist "..\icon.ico" (
+    set ICON_ARGS=--icon ..\icon.ico
+)
+
 pyinstaller --name LocalAgent ^
+    --clean ^
     --onefile ^
     --windowed ^
-    --icon ..\icon.ico ^
+    !ICON_ARGS! ^
     --add-data "..\config.py;." ^
     --add-data "..\models.py;." ^
     --add-data "..\worker.py;." ^
     --add-data "..\server.py;." ^
+    --add-data "..\log_manager.py;." ^
     --hidden-import fastapi ^
     --hidden-import uvicorn ^
     --hidden-import pydantic ^
@@ -52,6 +63,7 @@ pyinstaller --name LocalAgent ^
     --hidden-import pystray ^
     --collect-all fastapi ^
     --collect-all uvicorn ^
+    --collect-all pydantic ^
     ..\tray_app.py
 
 if %errorlevel% neq 0 (
@@ -70,6 +82,5 @@ if exist "dist\LocalAgent.exe" (
     echo ============================================================
 ) else (
     echo ERROR: Output not found
+    exit /b 1
 )
-
-pause >nul

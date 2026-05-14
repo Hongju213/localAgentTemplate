@@ -3,12 +3,12 @@
 
 #define MyAppName "Local Agent"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "Your Team"
-#define MyAppURL "https://your-app.example.com"
+#define MyAppPublisher "Local Agent"
+#define MyAppURL "https://example.com"
 #define MyAppExeName "LocalAgent.exe"
 
 [Setup]
-AppId={{CHANGE-THIS-TO-YOUR-UNIQUE-GUID}
+AppId={{9F7B752B-2452-45CB-80B0-750AB73FA97F}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -28,7 +28,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
-Name: "startup"; Description: "Windows 시작 시 자동 실행"; Flags: checkedonce
+Name: "startup"; Description: "Run automatically when Windows starts"; Flags: checkedonce
 
 [Files]
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion

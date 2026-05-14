@@ -11,6 +11,7 @@ env/
 
 # Distribution / Build
 dist/
+build/build/
 build/dist/
 build/output/
 build/__pycache__/

@@ -32,12 +32,16 @@
 
 =====================================================================
 """
+import asyncio
+import os
+import subprocess
 import time
 import json
 import logging
+import uuid
 import httpx
 
-from fastapi import FastAPI, Request, Query
+from fastapi import Body, FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
@@ -243,6 +247,94 @@ async def run_test():
     }
 
 
+@app.get("/api/bat/test", summary="Run Test Batch File (GET)")
+async def run_test_bat_get(request: Request):
+    """
+    GET 방식의 배치 실행 요청을 접수합니다.
+
+    입력:
+      - query string: sample backend 또는 화면에서 보낸 테스트 파라미터
+
+    출력:
+      - accepted/message/job_id만 즉시 반환합니다.
+      - 실제 배치/Python 업무 결과는 이 응답에 포함하지 않습니다.
+
+    처리 방식:
+      - asyncio.create_task()로 배치 실행을 분리합니다.
+      - 그래서 호출자는 배치가 끝날 때까지 기다리지 않고 바로 "요청됨" 상태를 받을 수 있습니다.
+    """
+    payload = {
+        "job_id": str(uuid.uuid4()),
+        "method": "GET",
+        "path": str(request.url.path),
+        "query": dict(request.query_params),
+        "callback_url": config.TEST_CALLBACK_URL,
+    }
+    asyncio.create_task(_run_test_bat_background(payload))
+    logger.info(f"[BAT] Accepted GET job: {payload['job_id']}")
+    return {
+        "accepted": True,
+        "message": "요청되었습니다.",
+        "job_id": payload["job_id"],
+    }
+
+
+@app.post("/api/bat/test", summary="Run Test Batch File (POST)")
+async def run_test_bat_post(
+    request: Request,
+    body: dict | list | str | int | float | bool | None = Body(default=None),
+):
+    """
+    POST 방식의 배치 실행 요청을 접수합니다.
+
+    입력:
+      - request body: sample backend가 보낸 자유 형식 JSON
+      - query string: 필요하면 같이 전달되는 보조 파라미터
+
+    출력:
+      - GET과 동일하게 accepted/message/job_id를 즉시 반환합니다.
+      - Python 업무 완료는 별도 callback 흐름으로 sample backend에 전달됩니다.
+    """
+    payload = {
+        "job_id": str(uuid.uuid4()),
+        "method": "POST",
+        "path": str(request.url.path),
+        "query": dict(request.query_params),
+        "body": body,
+        "callback_url": config.TEST_CALLBACK_URL,
+    }
+    asyncio.create_task(_run_test_bat_background(payload))
+    logger.info(f"[BAT] Accepted POST job: {payload['job_id']}")
+    return {
+        "accepted": True,
+        "message": "요청되었습니다.",
+        "job_id": payload["job_id"],
+    }
+
+
+@app.post("/api/bat/test/complete", summary="Receive Test Batch Completion")
+async def complete_test_bat(payload: dict = Body(default_factory=dict)):
+    """
+    Python runner가 업무 완료 후 호출하는 agent 완료 수신 API입니다.
+
+    입력:
+      - Python runner가 원 요청 payload에 업무 결과(result), pack 정보, task 목록을 붙인 JSON
+
+    출력:
+      - received: agent가 완료 payload를 받았는지
+      - forwarded: sample backend callback API로 전달했는지
+
+    역할:
+      - agent는 업무 결과를 직접 보관하지 않고 sample backend로 전달하는 중계자 역할을 합니다.
+    """
+    logger.info(f"[BAT] Completion received: {json.dumps(payload, ensure_ascii=False)}")
+    forwarded = await _send_bat_completion_to_sample(payload)
+    return {
+        "received": True,
+        "forwarded": forwarded,
+    }
+
+
 # ──────── 4-4. 샘플 확인 ────────
 @app.get("/api/task/sample", summary="Sample Request/Response")
 async def get_sample():
@@ -328,6 +420,106 @@ async def _send_result_to_remote(response: TaskResponse):
 
     except Exception as e:
         logger.warning(f"[REMOTE] Send failed (ignored): {e}")
+
+
+async def _run_test_bat_background(payload: dict):
+    """
+    배치 파일 실행을 담당하는 백그라운드 작업입니다.
+
+    입력:
+      - payload: job_id, method, path, query/body, sample callback URL
+
+    출력:
+      - HTTP 응답으로 돌려주지 않습니다.
+      - 실행 로그만 남기고, 실제 완료 통지는 run-pack.py가 agent 완료 API를 호출하는 방식으로 진행합니다.
+    """
+    input_json = json.dumps(payload, ensure_ascii=False)
+    logger.info(f"[BAT] Running {config.TEST_BAT_PATH}")
+    logger.info(f"[BAT] INPUT_JSON={input_json}")
+
+    result = await asyncio.to_thread(_run_bat_file, config.TEST_BAT_PATH, input_json)
+    logger.info(f"[BAT] Finished: exit_code={result['exit_code']}")
+
+
+def _run_bat_file(path: str, input_json: str):
+    """
+    Windows cmd.exe로 특정 경로의 .bat 파일을 실행합니다.
+
+    입력:
+      - path: 실행할 배치 파일 절대 경로
+      - input_json: 배치와 Python runner가 읽을 원 요청 JSON
+
+    환경변수:
+      - INPUT_JSON: sample/agent 요청 정보를 담은 JSON 문자열
+      - AGENT_COMPLETE_URL: Python runner가 완료 시 호출할 agent API
+
+    출력:
+      - success/exit_code/stdout/stderr를 담은 dict
+      - 현재 구조에서는 이 값이 호출자에게 바로 반환되지 않고 로그 확인용으로만 사용됩니다.
+    """
+    if not os.path.exists(path):
+        return {
+            "success": False,
+            "bat_path": path,
+            "input_json": input_json,
+            "exit_code": None,
+            "stdout": "",
+            "stderr": f"Batch file not found: {path}",
+        }
+
+    env = os.environ.copy()
+    env["INPUT_JSON"] = input_json
+    env["AGENT_COMPLETE_URL"] = f"http://{config.LOCAL_HOST}:{config.LOCAL_PORT}/api/bat/test/complete"
+
+    try:
+        completed = subprocess.run(
+            ["cmd.exe", "/d", "/s", "/c", path],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            env=env,
+        )
+        return {
+            "success": completed.returncode == 0,
+            "bat_path": path,
+            "input_json": input_json,
+            "exit_code": completed.returncode,
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+        }
+    except subprocess.TimeoutExpired as e:
+        return {
+            "success": False,
+            "bat_path": path,
+            "input_json": input_json,
+            "exit_code": None,
+            "stdout": e.stdout or "",
+            "stderr": "Batch file timed out after 30 seconds",
+        }
+
+
+async def _send_bat_completion_to_sample(payload: dict) -> bool:
+    """
+    Python runner가 보낸 완료 payload를 sample backend로 전달합니다.
+
+    입력:
+      - payload.callback_url이 있으면 그 URL을 우선 사용합니다.
+      - 없으면 config.TEST_CALLBACK_URL을 fallback으로 사용합니다.
+
+    출력:
+      - sample backend가 2xx로 응답하면 True, 실패하면 False
+    """
+    callback_url = payload.get("callback_url") or config.TEST_CALLBACK_URL
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(callback_url, json=payload)
+            logger.info(f"[BAT] Forwarded completion to sample: status={resp.status_code}")
+            return 200 <= resp.status_code < 300
+    except Exception as e:
+        logger.warning(f"[BAT] Forward completion failed: {e}")
+        return False
 
 
 # ╔═══════════════════════════════════════════════════════════════╗

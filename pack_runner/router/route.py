@@ -131,6 +131,8 @@ class Router:
                 method="POST",
             )
             with urllib.request.urlopen(request, timeout=15) as response:
+                response_body = response.read().decode("utf-8", errors="replace")
                 print(f"Agent callback status: {response.status}")
+                print(f"Agent callback body: {response_body}")
         except Exception as exc:
             print(f"Agent callback failed: {exc}")

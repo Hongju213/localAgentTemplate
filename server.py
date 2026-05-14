@@ -518,9 +518,12 @@ async def _send_bat_completion_to_sample(payload: dict) -> bool:
     """
     callback_url = payload.get("callback_url") or config.TEST_CALLBACK_URL
     try:
+        logger.info(f"[BAT] Forwarding completion to sample: url={callback_url}")
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(callback_url, json=payload)
             logger.info(f"[BAT] Forwarded completion to sample: status={resp.status_code}")
+            if not 200 <= resp.status_code < 300:
+                logger.warning(f"[BAT] Sample callback response body: {resp.text}")
             return 200 <= resp.status_code < 300
     except Exception as e:
         logger.warning(f"[BAT] Forward completion failed: {e}")

@@ -263,12 +263,13 @@ async def run_test_bat_get(request: Request):
       - asyncio.create_task()로 배치 실행을 분리합니다.
       - 그래서 호출자는 배치가 끝날 때까지 기다리지 않고 바로 "요청됨" 상태를 받을 수 있습니다.
     """
+    callback_url = request.query_params.get("callback_url") or config.TEST_CALLBACK_URL
     payload = {
         "job_id": str(uuid.uuid4()),
         "method": "GET",
         "path": str(request.url.path),
         "query": dict(request.query_params),
-        "callback_url": config.TEST_CALLBACK_URL,
+        "callback_url": callback_url,
     }
     asyncio.create_task(_run_test_bat_background(payload))
     logger.info(f"[BAT] Accepted GET job: {payload['job_id']}")
@@ -295,13 +296,17 @@ async def run_test_bat_post(
       - GET과 동일하게 accepted/message/job_id를 즉시 반환합니다.
       - Python 업무 완료는 별도 callback 흐름으로 sample backend에 전달됩니다.
     """
+    callback_url = config.TEST_CALLBACK_URL
+    if isinstance(body, dict):
+        callback_url = body.get("callback_url") or callback_url
+
     payload = {
         "job_id": str(uuid.uuid4()),
         "method": "POST",
         "path": str(request.url.path),
         "query": dict(request.query_params),
         "body": body,
-        "callback_url": config.TEST_CALLBACK_URL,
+        "callback_url": callback_url,
     }
     asyncio.create_task(_run_test_bat_background(payload))
     logger.info(f"[BAT] Accepted POST job: {payload['job_id']}")
